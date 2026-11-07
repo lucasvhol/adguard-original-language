@@ -20,18 +20,6 @@ https://raw.githubusercontent.com/lucasvhol/adguard-original-language/main/optio
 
 The URLs are **future subscription addresses, not live until the repository is published**. AdGuard can periodically fetch updated versions from the same URLs after the repository is public. Mark the custom filter **Trusted** to permit JavaScript rules, and on Chrome 138+ enable **Allow user scripts** for AdGuard in extension settings.
 
-## Publish to GitHub
-
-Requires [Git](https://git-scm.com/downloads/win), [GitHub CLI (`gh`)](https://cli.github.com/), and PowerShell 7 or Windows PowerShell 5.1. From the extracted project folder run:
-
-```powershell
-.\Publish-ToGitHub.ps1
-```
-
-The script checks the authenticated GitHub account, initializes Git and commits the project, creates **public** `lucasvhol/adguard-original-language`, and pushes to its `main` branch. The script stops rather than overwriting an already-existing GitHub repository. If GitHub CLI is not authenticated, it opens a browser sign-in flow. The script makes no change to other repositories.
-
-Alternatively, create an **empty public** repository on [GitHub's repository creation page](https://github.com/new?name=adguard-original-language), then push the contents manually or ask ChatGPT to upload the prepared files to the newly created repository using the connected GitHub app.
-
 ## Downloads / structure
 
 | File | What it is |
