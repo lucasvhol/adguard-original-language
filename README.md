@@ -2,7 +2,7 @@
 
 **Stop unwanted automatic translations and experience websites in their original language.**
 
-Original Language is a collection of custom AdGuard filters designed to reduce automatic translation across popular websites, including Google Search, YouTube, Reddit, X (Twitter), and LinkedIn.
+Original Language is a collection of custom AdGuard filters, plus a userscript for other blockers, designed to reduce automatic translation across popular websites, including Google Search, YouTube, Reddit, X (Twitter), LinkedIn, Facebook, Instagram, and Threads.
 
 Whether you're tired of translated YouTube titles, AI-dubbed videos, or Google changing search results into another language, these filters help preserve the original content whenever possible.
 
@@ -12,12 +12,12 @@ No additional browser extension is needed beyond a compatible AdGuard installati
 
 | Website | What the filter does |
 |---|---|
-| **Google Search** | Restores original search result titles and descriptions when available. |
-| **YouTube** | Attempts to restore original video titles and automatically select original audio tracks. |
-| **Reddit** | Removes translation parameters from Reddit links to display posts in their original language. |
-| **Google Translate** | Redirects supported translated webpage links to the original website. |
-| **X (Twitter)** | Optionally switches translated posts back to their original language. |
-| **LinkedIn** | Optionally displays the original text of translated posts. |
+| **Google Search** | Restores original search result titles and descriptions when available, on all Google country domains. |
+| **YouTube** | Attempts to restore original video titles (feeds, Shorts, player, end screen, miniplayer) and automatically select original audio tracks, including on Shorts. |
+| **Reddit** | Removes translation parameters from Reddit links, including while browsing inside the site. |
+| **Google Translate** | Redirects translated pages, including `*.translate.goog` addresses, to the original website. |
+| **YouTube details** | Optionally restores video descriptions and channel names. |
+| **X, LinkedIn, Facebook, Instagram, Threads** | Optionally clicks "Show original" on translated posts. |
 
 **Note:** Website compatibility varies. Some features depend on how each website handles translations and may stop working after site updates.
 
@@ -37,6 +37,10 @@ For other browsers, refer to [AdGuard's user scripts documentation](https://adgu
 
 ### Step 2 — Add the filter
 
+**One-click:** [Subscribe to the main filter](https://subscribe.adblockplus.org/?location=https%3A%2F%2Fraw.githubusercontent.com%2Flucasvhol%2Fadguard-original-language%2Fmain%2Foriginal-language-adguard.txt&title=Original%20Language). AdGuard opens its add-filter dialog. **You still need to enable the Trusted option there**, or the JavaScript rules will not run.
+
+**Manually:**
+
 1. Open **AdGuard Settings**.
 2. Navigate to **Filters → Custom filters**.
 3. Select **Add custom filter**.
@@ -53,17 +57,31 @@ https://raw.githubusercontent.com/lucasvhol/adguard-original-language/main/origi
 
 That's it! AdGuard can now fetch updated filter versions from this repository.
 
-### Step 3 — Optional social media support
+### Step 3 — Optional experimental features
 
-For additional support on X (Twitter) and LinkedIn, you can install this experimental filter:
+For "Show original" on X (Twitter), LinkedIn, Facebook, Instagram, and Threads, and for YouTube descriptions and channel names, you can install this experimental filter ([one-click](https://subscribe.adblockplus.org/?location=https%3A%2F%2Fraw.githubusercontent.com%2Flucasvhol%2Fadguard-original-language%2Fmain%2Foptional-social-originals.txt&title=Original%20Language%20Optional)):
 
 ```text
 https://raw.githubusercontent.com/lucasvhol/adguard-original-language/main/optional-social-originals.txt
 ```
 
-Follow the same installation steps above.
+Follow the same installation steps above, including the **Trusted** option.
 
-This filter is entirely optional and separate from the main filter because social media interfaces change frequently.
+This filter is entirely optional and separate from the main filter because these interfaces change frequently. When a YouTube description is restored, its links and timestamps stay clickable, but hashtags and @mentions become plain text.
+
+### Other ad blockers: userscript
+
+The JavaScript rules only run in AdGuard. For uBlock Origin, Brave, or any other blocker, install a userscript manager such as [Violentmonkey](https://violentmonkey.github.io/) or [Tampermonkey](https://www.tampermonkey.net/), then open:
+
+```text
+https://raw.githubusercontent.com/lucasvhol/adguard-original-language/main/original-language.user.js
+```
+
+The userscript contains the same features as the main filter and updates through your manager. To turn on the experimental features, change `ENABLE_OPTIONAL` to `true` near the top of the script (updates reset this). Do not use the userscript and the AdGuard filter together.
+
+### Keeping a translated page
+
+Translated pages redirect to the original site, even when you asked for the translation. To stay on one, add `#keep-translation` to the end of its address and press Enter. The choice lasts until you close that tab, so links within the translated site keep working.
 
 ## How it works
 
@@ -84,16 +102,18 @@ The filter does not translate content itself. Its purpose is to preserve the lan
 | AdGuard for Windows / macOS | Depends on filtering configuration |
 | AdGuard DNS / AdGuard Home | Not supported for JavaScript features |
 | Mobile content blockers | Limited; JavaScript support varies |
+| uBlock Origin, Brave, and other blockers | Filter lists are not supported; use the userscript |
+| Tampermonkey / Violentmonkey | Supported through the userscript |
 
 **Important:** This project is not a universal translation blocker. Some websites perform translations directly on their servers, making original content unavailable to standard content filters.
 
 ## Known limitations
 
-- **YouTube:** Original titles and audio selection are experimental. Video descriptions, subtitles, thumbnails, chapters, and mobile-specific interfaces are not fully supported.
+- **YouTube:** Original titles and audio selection are experimental. Subtitles, thumbnails, chapters, and mobile-specific interfaces are not fully supported. Descriptions and channel names need the optional filter.
 - **Google Search:** Original titles and snippets can only be restored when Google's page contains the necessary information.
 - **Reddit:** The filter removes translation parameters from URLs but does not change Reddit account preferences.
-- **X and LinkedIn:** Optional restoration relies on visible interface controls and may be affected by website updates.
-- **Google Translate:** Links to supported translated webpages are redirected to the original site, including when translation was requested manually.
+- **Social sites:** Optional restoration relies on visible interface controls and may be affected by website updates. It only recognizes a set list of "Show original" labels.
+- **Google Translate:** Translated pages redirect to the original site, including when translation was requested manually, unless you use [`#keep-translation`](#keeping-a-translated-page).
 - **Browser translation:** Chrome's built-in translation feature must be configured separately through `chrome://settings/languages`.
 
 For more complete YouTube translation controls, consider [YouTube Anti Translate](https://github.com/zpix1/yt-anti-translate).
@@ -111,6 +131,16 @@ YouTube frequently changes its interface. Some translation features may require 
 **A website behaves unexpectedly**
 
 Temporarily disable the Original Language filter and reload the page. If the issue disappears, the filter may be interfering with the website.
+
+**How do I see what the filter is doing?**
+
+Open the site, press F12, open **Console**, and run:
+
+```js
+localStorage.setItem('agOriginalLanguageDebug', '1')
+```
+
+Reload the page and enable the **Verbose** log level. Lines starting with `[Original Language]` show the version, active features, and what was restored. Please include them when reporting a problem. Run `localStorage.removeItem('agOriginalLanguageDebug')` to turn this off.
 
 **How do I uninstall it?**
 
@@ -130,15 +160,17 @@ For issues or feature suggestions, visit the [GitHub repository](https://github.
 
 The repository includes readable JavaScript source files, a Python build script, and automated tests.
 
-To rebuild the filters and run the test suites:
+To rebuild the generated files and run the test suites:
 
 ```powershell
 python .\build.py
-node .\tests\smoke.cjs
-node .\tests\google.cjs
+npm install
+npm test
 ```
 
-These tests validate rule generation and simulated website behavior. They do not replace testing in a live browser.
+`python .\build.py --check` fails if the generated files are out of date. Edit the source `.js` files and `build.py`, never the generated `.txt` and `.user.js` files. Shared code lives in `lib/` and is added with `/* @include lib/name.js */`.
+
+These tests run the compiled rules against simulated pages. They do not replace testing in a live browser.
 
 Contributions and improvements are welcome.
 

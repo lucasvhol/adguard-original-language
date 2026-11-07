@@ -1,8 +1,6 @@
 const vm = require('node:vm');
-const fs = require('node:fs');
 const assert = require('node:assert/strict');
-const root = require('node:path').join(__dirname, '..');
-const read = f => fs.readFileSync(require('node:path').join(root, f), 'utf8');
+const { read, mainRules, code } = require('./helpers.cjs');
 
 async function testAudio() {
   let interval;
@@ -19,9 +17,10 @@ async function testAudio() {
   const window = {};
   const context = { window, document: {
     querySelector: () => player, addEventListener: () => {}, documentElement: {},
-  }, MutationObserver: class { observe() {} }, setTimeout: () => 1,
-  setInterval: f => { interval = f; }, atob };
-  vm.runInNewContext(read('youtube-audio.js'), context);
+  }, location: { hostname: 'www.youtube.com', pathname: '/watch' },
+  MutationObserver: class { observe() {} }, setTimeout: () => 1,
+  setInterval: f => { interval = f; return 1; }, clearInterval: () => {}, atob };
+  vm.runInNewContext(code.audio(), context);
   await interval();
   assert.equal(current, original);
   current = dubbed; // Simulate manual choice: do not override it again.
@@ -38,6 +37,7 @@ async function testTitles() {
   const document = {
     documentElement: {}, title: 'Título traduzido - YouTube',
     querySelectorAll: selector => selector.includes('#title h1') ? [titleEl] : [],
+    querySelector: () => null,
     addEventListener: () => {},
   };
   const location = { hostname: 'www.youtube.com',
@@ -48,9 +48,10 @@ async function testTitles() {
     addEventListener: () => {}, MutationObserver: class { observe() {} },
     fetch: async () => { fetches++; return { ok: true, json: async () => ({title:'Original Title'}) }; },
   };
-  vm.runInNewContext(read('youtube-titles.js'), context);
-  scheduled();
+  vm.runInNewContext(code.titles(), context);
+  scheduled(); // First scan requests the title.
   await new Promise(resolve => setTimeout(resolve, 10));
+  scheduled(); // The response schedules a scan that applies it.
   assert.equal(titleEl.textContent, 'Original Title');
   assert.equal(document.title, 'Original Title - YouTube');
   assert.equal(fetches, 1);
@@ -59,11 +60,11 @@ async function testTitles() {
 async function main() {
   const compiled = read('original-language-adguard.txt').split('\n');
   assert.ok(compiled.includes('||reddit.com^$removeparam=tl'));
-  const rules = compiled.filter(line => line.includes('#%#'));
-  assert.equal(rules.length, 4);
+  const rules = mainRules();
+  assert.equal(rules.length, 5);
   for (const rule of rules) new vm.Script(rule.split('#%#')[1]);
   await testAudio();
   await testTitles();
-  console.log('PASS: Reddit rule, four JS rule syntax checks, audio selection, title restoration');
+  console.log('PASS: Reddit rule, five JS rule syntax checks, audio selection, title restoration');
 }
 main().catch(err => { console.error(err); process.exitCode = 1; });

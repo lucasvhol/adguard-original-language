@@ -1,8 +1,6 @@
 const assert = require('node:assert/strict');
-const fs = require('node:fs');
 const vm = require('node:vm');
-const path = require('node:path');
-const read = filename => fs.readFileSync(path.join(__dirname, '..', filename), 'utf8');
+const { read, mainRules, optionalRules, code } = require('./helpers.cjs');
 
 class Style {
   constructor(display = '') { this.display = display; this.priority = ''; }
@@ -59,7 +57,7 @@ function fakeSearch({ originalExists }) {
   const loc = { hostname: 'www.google.com.br', pathname: '/search', href: 'https://www.google.com.br/search?q=demo' };
   const window = { addEventListener() {} };
   const context = { document: doc, location: loc, URL, window, setTimeout() {}, MutationObserver: class { observe() {} } };
-  vm.runInNewContext(read('google-search.js'), context);
+  vm.runInNewContext(code.search(), context);
   return { translatedBlock, translatedAnchor, originalBlock, translatedSnippet, originalSnippet, bar };
 }
 
@@ -88,20 +86,21 @@ function testProxy() {
     let redirected = null;
     const url = new URL(href);
     const location = { hostname: url.hostname, pathname: url.pathname, href, replace: val => { redirected = val; } };
-    vm.runInNewContext(read('google-proxy.js'), { location, URL });
+    vm.runInNewContext(code.proxy(), { location, URL });
     assert.equal(redirected, expected, `Redirect failed for ${href}`);
   }
 }
 
 function testOptionalSocial() {
   let clicked = 0;
-  const button = { textContent: 'Show original', tagName: 'BUTTON', getAttribute: () => null, click: () => { clicked++; } };
-  const article = { querySelectorAll: () => [button] };
+  const rect = () => ({ top: 0, bottom: 10 });
+  const button = { textContent: 'Show original', tagName: 'BUTTON', getAttribute: () => null, getBoundingClientRect: rect, click: () => { clicked++; } };
+  const article = { querySelectorAll: () => [button], getBoundingClientRect: rect };
   const document = { documentElement: {}, addEventListener() {}, querySelectorAll: () => [article] };
   let scheduled;
-  const context = { document, location: { hostname: 'x.com', origin: 'https://x.com' }, window: {},
-    MutationObserver: class { observe() {} }, setTimeout: fn => { scheduled = fn; return 1; } };
-  vm.runInNewContext(read('social-originals.js'), context);
+  const context = { document, location: { hostname: 'x.com', origin: 'https://x.com' }, window: {}, innerHeight: 800,
+    addEventListener() {}, MutationObserver: class { observe() {} }, setTimeout: fn => { scheduled = fn; return 1; } };
+  vm.runInNewContext(code.social(), context);
   scheduled();
   assert.equal(clicked, 1);
   scheduled();
@@ -110,16 +109,16 @@ function testOptionalSocial() {
 
 function main() {
   const compiled = read('original-language-adguard.txt');
-  const rules = compiled.split('\n').filter(line => line.includes('#%#'));
-  assert.equal(rules.length, 4);
+  const rules = mainRules();
+  assert.equal(rules.length, 5);
   assert.ok(compiled.includes('||reddit.com^$removeparam=tl'));
   assert.ok(compiled.includes('www.google.com.br'));
   assert.ok(!compiled.includes('$urlskip='), 'uBlock-only rule must not be included');
   for (const rule of rules) new vm.Script(rule.split('#%#')[1]);
-  const optional = read('optional-social-originals.txt').split('\n').filter(l => l.includes('#%#'));
-  assert.equal(optional.length, 1);
-  new vm.Script(optional[0].split('#%#')[1]);
+  const optional = optionalRules();
+  assert.equal(optional.length, 2);
+  for (const rule of optional) new vm.Script(rule.split('#%#')[1]);
   testSearch(); testProxy(); testOptionalSocial();
-  console.log('PASS: 5 compiled JS rules, Google original result restoration, safe proxy bypass, optional X auto-original, Reddit parameter');
+  console.log('PASS: 7 compiled JS rules, Google original result restoration, safe proxy bypass, optional X auto-original, Reddit parameter');
 }
 main();

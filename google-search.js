@@ -8,20 +8,11 @@
   if (window.__agOriginalGoogleSearchInstalled) return;
   if (location.pathname !== '/search' && !(location.pathname === '/' && new URL(location.href).searchParams.has('q'))) return;
   window.__agOriginalGoogleSearchInstalled = true;
+  /* @include lib/debug.js */
+  /* @include lib/translated-url.js */
 
-  const translatedHosts = new Set(['translate.google.com']);
   const translatedBlocks = new WeakSet();
-  const getOriginalUrl = href => {
-    try {
-      const url = new URL(href, location.href);
-      if (!translatedHosts.has(url.hostname) || !['/translate', '/website'].includes(url.pathname)) return null;
-      const target = url.searchParams.get('u');
-      if (!target) return null;
-      const original = new URL(target);
-      if (!['http:', 'https:'].includes(original.protocol) || !original.hostname || original.username || original.password) return null;
-      return original.href;
-    } catch (_) { return null; }
-  };
+  const translatedLinks = 'a[href*="translate.google.com/translate"],a[href*="translate.google.com/website"],a[href*=".translate.goog"]';
 
   const hide = el => {
     if (el.style.getPropertyValue('display') !== 'none' || el.style.getPropertyPriority('display') !== 'important') {
@@ -67,10 +58,12 @@
 
     // Link-only fallback when the original title/snippet is not in the page.
     // This does NOT falsely claim to have restored the original text.
-    for (const a of document.querySelectorAll('a[href*="translate.google.com/translate"],a[href*="translate.google.com/website"]')) {
+    let rewritten = 0;
+    for (const a of document.querySelectorAll(translatedLinks)) {
       const original = getOriginalUrl(a.href);
-      if (original && a.href !== original) a.href = original;
+      if (original && a.href !== original) { a.href = original; rewritten++; }
     }
+    if (translatedContainers.size || rewritten) agDebug('google-search: restored', translatedContainers.size, 'results,', rewritten, 'links');
   };
 
   let pending = false;
@@ -80,7 +73,8 @@
     setTimeout(() => { pending = false; restore(); }, 120);
   };
   const observe = () => {
-    const root = document.querySelector('#search') || document.body || document.documentElement;
+    // Watch the whole page: results added by "more results" can land outside #search.
+    const root = document.body || document.documentElement;
     if (!root) return;
     new MutationObserver(mutations => {
       if (mutations.some(m => m.type === 'childList' && m.addedNodes.length > 0 ||

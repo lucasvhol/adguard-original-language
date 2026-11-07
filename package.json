@@ -1,0 +1,13 @@
+{
+  "name": "adguard-original-language",
+  "version": "0.3.0",
+  "private": true,
+  "description": "Build and test tooling for the Original Language filters.",
+  "license": "MIT",
+  "scripts": {
+    "test": "node tests/smoke.cjs && node tests/google.cjs && node tests/features.cjs"
+  },
+  "devDependencies": {
+    "jsdom": "^25.0.1"
+  }
+}
