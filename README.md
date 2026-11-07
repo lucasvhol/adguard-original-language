@@ -1,80 +1,136 @@
-# Original Language — AdGuard custom filters (v0.2.1)
+# Original Language for AdGuard
 
-Research date: **2026-11-07**. A small, source-reviewed attempt to keep original-language content on major websites. This is **not** a universal anti-translation switch.
+**Stop unwanted automatic translations and experience websites in their original language.**
 
-## Subscribe directly from AdGuard
+Original Language is a collection of custom AdGuard filters designed to reduce automatic translation across popular websites, including Google Search, YouTube, Reddit, X (Twitter), and LinkedIn.
 
-Once this repository is published as `lucasvhol/adguard-original-language` with a public `main` branch, add these URLs in **AdGuard → Settings → Filters → Custom → Add custom filter**:
+Whether you're tired of translated YouTube titles, AI-dubbed videos, or Google changing search results into another language, these filters help preserve the original content whenever possible.
 
-**Main filter (recommended):**
+No additional browser extension is needed beyond a compatible AdGuard installation.
+
+## Features
+
+| Website | What the filter does |
+|---|---|
+| **Google Search** | Restores original search result titles and descriptions when available. |
+| **YouTube** | Attempts to restore original video titles and automatically select original audio tracks. |
+| **Reddit** | Removes translation parameters from Reddit links to display posts in their original language. |
+| **Google Translate** | Redirects supported translated webpage links to the original website. |
+| **X (Twitter)** | Optionally switches translated posts back to their original language. |
+| **LinkedIn** | Optionally displays the original text of translated posts. |
+
+**Note:** Website compatibility varies. Some features depend on how each website handles translations and may stop working after site updates.
+
+## Installation
+
+### Step 1 — Enable AdGuard
+
+Install [AdGuard AdBlocker](https://adguard.com/) for your browser if you haven't already.
+
+For Chrome 138 or newer, JavaScript filtering also requires:
+
+1. Open `chrome://extensions`.
+2. Find **AdGuard AdBlocker** and select **Details**.
+3. Enable **Allow user scripts**.
+
+For other browsers, refer to [AdGuard's user scripts documentation](https://adguard.com/kb/adguard-browser-extension/user-scripts-api/).
+
+### Step 2 — Add the filter
+
+1. Open **AdGuard Settings**.
+2. Navigate to **Filters → Custom filters**.
+3. Select **Add custom filter**.
+4. Paste the following subscription URL:
+
+**Main filter — Recommended**
 
 ```text
 https://raw.githubusercontent.com/lucasvhol/adguard-original-language/main/original-language-adguard.txt
 ```
 
-**Optional X / LinkedIn filter (experimental):**
+5. Add the filter and enable the **Trusted** option to allow its JavaScript rules.
+6. Save your changes and reload any affected websites.
+
+That's it! AdGuard can now fetch updated filter versions from this repository.
+
+### Step 3 — Optional social media support
+
+For additional support on X (Twitter) and LinkedIn, you can install this experimental filter:
 
 ```text
 https://raw.githubusercontent.com/lucasvhol/adguard-original-language/main/optional-social-originals.txt
 ```
 
-The URLs are **future subscription addresses, not live until the repository is published**. AdGuard can periodically fetch updated versions from the same URLs after the repository is public. Mark the custom filter **Trusted** to permit JavaScript rules, and on Chrome 138+ enable **Allow user scripts** for AdGuard in extension settings.
+Follow the same installation steps above.
 
-## Downloads / structure
+This filter is entirely optional and separate from the main filter because social media interfaces change frequently.
 
-| File | What it is |
+## How it works
+
+Original Language uses AdGuard's filtering capabilities to reduce unwanted translations through three methods:
+
+- **URL cleanup:** Removes translation parameters from links, allowing websites to open their original versions.
+- **Content restoration:** Retrieves original titles and descriptions when websites make the information available.
+- **Original audio selection:** Attempts to switch YouTube videos from dubbed audio to their original tracks.
+
+The filter does not translate content itself. Its purpose is to preserve the language originally used by the creator.
+
+## Compatibility
+
+| Platform | Support |
 |---|---|
-| `original-language-adguard.txt` | Main trusted filter: Google Search, Google Translate proxy, Reddit, YouTube |
-| `optional-social-originals.txt` | Separate opt-in experimental filter: X and LinkedIn (not included in main filter) |
-| `google-search.js` | Readable Google Search restoration JS |
-| `google-proxy.js` | Readable Google Translate proxy bypass JS |
-| `youtube-titles.js`, `youtube-audio.js` | Readable experimental YouTube JS from v0.1 |
-| `social-originals.js` | Readable X / LinkedIn opt-in JS |
-| `build.py` | Rebuild AdGuard rule files from readable source |
-| `Publish-ToGitHub.ps1` | Creates the public repository and pushes this project through GitHub CLI |
-| `.github/workflows/ci.yml` | Runs filter build consistency and Node test suites |
-| `tests/*.cjs` | Node smoke and simulated functional tests (not live-browser tests) |
+| AdGuard browser extension (Chrome / Edge) | Supported with JavaScript filtering enabled |
+| Other AdGuard browser extensions | Depends on browser and JavaScript rule support |
+| AdGuard for Windows / macOS | Depends on filtering configuration |
+| AdGuard DNS / AdGuard Home | Not supported for JavaScript features |
+| Mobile content blockers | Limited; JavaScript support varies |
 
-## Coverage and accuracy
+**Important:** This project is not a universal translation blocker. Some websites perform translations directly on their servers, making original content unavailable to standard content filters.
 
-| Site | Implementation | Expected reliability |
-|---|---|---|
-| **Reddit** | `||reddit.com^$removeparam=tl` strips URL translation flag. | High for `?tl=` URLs. Does not change a Reddit account-level translation preference or remove translated Google snippets. |
-| **Google Search** | JS detects original and translated `.uIV6Ge` siblings; shows the original title; swaps original snippet when available; rewrites `translate.google.com/...?...u=` result links to the original website. | Experimental; depends on Google's markup/experiments and only works for the 16 explicitly listed Google domains. Safe fallback: fix destination link only. |
-| **Google Translate proxy** | For `translate.google.com/translate?u=...` and `/website?u=...` with an HTTP(S) destination, navigates to the original site. | Conditional: only if injection executes early enough; intentionally overrides even a manually requested *full-page* translation, but does not touch the regular text translation editor. |
-| **YouTube video titles** | Uses oEmbed for original metadata, with visible-item limits and a bounded queue. | Experimental: selectors, rate limits, restricted videos, and oEmbed can fail. Desktop only. |
-| **YouTube original audio** | Selects the original track through exposed player methods once per video. | Experimental: requires YouTube to expose the player methods and an original track. |
-| **X / Twitter** (optional) | Clicks `Show original` if matching supported locale labels exist inside tweet articles. | Experimental; dependent on button layout and locale. |
-| **LinkedIn** (optional) | Clicks `See original` if matching supported locale labels exist in feed content. | Experimental; dependent on button layout and locale. |
+## Known limitations
 
-## Install — AdGuard browser extension (Chrome/Edge)
+- **YouTube:** Original titles and audio selection are experimental. Video descriptions, subtitles, thumbnails, chapters, and mobile-specific interfaces are not fully supported.
+- **Google Search:** Original titles and snippets can only be restored when Google's page contains the necessary information.
+- **Reddit:** The filter removes translation parameters from URLs but does not change Reddit account preferences.
+- **X and LinkedIn:** Optional restoration relies on visible interface controls and may be affected by website updates.
+- **Google Translate:** Links to supported translated webpages are redirected to the original site, including when translation was requested manually.
+- **Browser translation:** Chrome's built-in translation feature must be configured separately through `chrome://settings/languages`.
 
-1. On Chrome **138+**, open `chrome://extensions`, then **AdGuard AdBlocker → Details → Allow user scripts**. Older Chrome may require Developer mode instead. See [AdGuard instructions](https://adguard.com/kb/adguard-browser-extension/user-scripts-api/).
-2. Use AdGuard's **User Rules** and paste the contents of `original-language-adguard.txt` **or** import it under **Filters → Custom** as a **Trusted** custom filter, if your AdGuard version supports that import method.
-3. Save, reload Google Search, Reddit, and YouTube.
-4. Optionally install `optional-social-originals.txt` in the same way **only if** you want the experimental X and LinkedIn automation.
+For more complete YouTube translation controls, consider [YouTube Anti Translate](https://github.com/zpix1/yt-anti-translate).
 
-Do **not** enable the same rules in both Custom Filters and User Rules. AdGuard DNS/Home and simple content blocker variants do not run these JavaScript rules. Support varies by AdGuard product and browser. JavaScript rules must be in a **trusted** source.
+## Troubleshooting
 
-## What AdGuard cannot reliably do
+**The filter isn't working**
 
-- Stop **Chrome's built-in page translation**. Set `chrome://settings/languages` instead.
-- Recover translated titles/snippets that Google does not include in page markup. Our fallback restores the destination *link* only.
-- Guarantee disabling X, LinkedIn, Instagram or Facebook translations via network rules; content translation is usually part of site/app logic. Prefer account controls when available.
-- Restore all YouTube descriptions, thumbnails, chapter markers, subtitles or mobile titles. YouTube Anti Translate is still the more feature-complete extension.
-- Avoid **Google-indexed translated Reddit results** (which may be displayed before you visit Reddit). The `tl` rule fixes navigation, not search ranking. An optional `-inurl:?tl=` search modifier may exclude those results but can reduce useful results; deliberately not added by default.
+Check that AdGuard is enabled, that the custom filter is marked as Trusted, and that JavaScript filtering is permitted by your browser. Reload the affected website afterward.
 
-### Preferred site-specific controls (not filter rules)
+**YouTube is still translating some content**
 
-- **X:** On a translated post, click the gear by *Show original* and disable auto-translate for that language (2026 feature).
-- **LinkedIn:** Settings → language preferences → **Which languages do you not want content on LinkedIn translated from?** Add languages you read.
-- **Instagram/Facebook:** On translated Reels, three-dot menu → audio/language → **Don't translate**.
-- **Reddit:** Turn off machine translations in its own translation UI; the URL filter removes `?tl=` from links.
-- **Google Search:** Language and region settings can influence results, but do not reliably disable translated search snippets; this filter addresses them on the page.
+YouTube frequently changes its interface. Some translation features may require the dedicated YouTube Anti Translate extension.
 
-## Tests and limitations
+**A website behaves unexpectedly**
 
-Run:
+Temporarily disable the Original Language filter and reload the page. If the issue disappears, the filter may be interfering with the website.
+
+**How do I uninstall it?**
+
+Open **AdGuard → Settings → Filters → Custom filters** and remove or disable the Original Language subscriptions.
+
+## Updates
+
+The filters are hosted directly on GitHub, making them easy to maintain and update.
+
+Once subscribed, AdGuard can periodically check for new versions without requiring you to download the filter again.
+
+Updates may include improvements to existing websites, support for additional platforms, compatibility fixes, and performance optimizations.
+
+For issues or feature suggestions, visit the [GitHub repository](https://github.com/lucasvhol/adguard-original-language) and open an issue.
+
+## For developers
+
+The repository includes readable JavaScript source files, a Python build script, and automated tests.
+
+To rebuild the filters and run the test suites:
 
 ```powershell
 python .\build.py
@@ -82,22 +138,26 @@ node .\tests\smoke.cjs
 node .\tests\google.cjs
 ```
 
-Both tests exercise syntax checks and mock execution (YouTube audio, YouTube title, Google result swapping, safe Google Translate proxy redirect, Reddit rule presence, and optional X click). They are **not tests against a logged-in, live browser**. Google, X, LinkedIn, and YouTube DOMs frequently change.
+These tests validate rule generation and simulated website behavior. They do not replace testing in a live browser.
 
-To remove all behavior, disable or delete the two imported filters (or remove the rules from User Rules).
+Contributions and improvements are welcome.
 
-## References and attribution
+## Credits and references
 
-- [Google Search translated result documentation](https://developers.google.com/search/docs/appearance/translated-results)
-- [Google Search — No Auto-Translate, EstebanAlpha (MIT)](https://greasyfork.org/en/scripts/570066-google-search-no-auto-translate/code). Original hidden-block concept adapted independently with narrower fallback/safety guards; credit for the core discovery.
-- [No Google Search Translation, lnoss (GPL-3.0)](https://github.com/lnoss/no-google-search-translation). Research reference only, no copied source.
-- [YouTube Anti Translate, zpix1 (MIT core)](https://github.com/zpix1/yt-anti-translate). Research reference for original metadata/player selection; excluded mobile-audio source not used.
-- [redditUntranslate (GPL-3.0)](https://github.com/SeidSmatti/redditUntranslate). Research reference only; its `?tl=` functionality is recreated with AdGuard's single standard rule.
-- [AdGuard filter syntax & restrictions](https://adguard.com/kb/general/ad-filtering/create-own-filters/)
-- [AdGuard User Scripts API (Chrome 138+)](https://adguard.com/kb/adguard-browser-extension/user-scripts-api/)
-- [Reddit translation help](https://support.reddithelp.com/hc/en-us/articles/27784816873236-Translations-for-feeds-posts-and-comments)
-- [LinkedIn post translation opt-out](https://www.linkedin.com/help/linkedin/answer/a525292)
-- [Meta translation controls](https://about.fb.com/news/2025/10/translate-dub-and-lip-sync-your-reels-between-hindi-and-english-now-on-instagram-and-facebook/)
-- [X auto-translation controls](https://techcrunch.com/2026/04/08/x-is-rolling-out-automatic-translation-and-photo-editing-powered-by-grok/)
+This project was developed using research and implementation techniques from several open-source projects:
 
-**Why no `$urlskip` rule?** Community answers recommend `||translate.google.com/translate$urlskip=?u`, but `$urlskip` is documented for uBlock Origin and is not established as supported in AdGuard. This project uses AdGuard `#%#` JavaScript rules instead.
+- [YouTube Anti Translate](https://github.com/zpix1/yt-anti-translate) — YouTube original metadata and audio restoration.
+- [Google Search — No Auto-Translate](https://greasyfork.org/en/scripts/570066-google-search-no-auto-translate/code) — Original Google Search result restoration.
+- [No Google Search Translation](https://github.com/lnoss/no-google-search-translation) — Additional Google Search research.
+- [redditUntranslate](https://github.com/SeidSmatti/redditUntranslate) — Reddit translation behavior research.
+- [AdGuard Documentation](https://adguard.com/kb/general/ad-filtering/create-own-filters/) — Filtering syntax and capabilities.
+
+See `NOTICE.md` for additional attribution and licensing information.
+
+## License
+
+Released under the **MIT License**. See [LICENSE](LICENSE) for details.
+
+---
+
+**Original Language for AdGuard** — Browse the web in its original language, without unwanted translations.
