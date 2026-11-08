@@ -32,8 +32,16 @@ async function testAudio() {
 async function testTitles() {
   let scheduled;
   let fetches = 0;
-  const titleEl = { textContent: 'Título traduzido', isConnected: true,
-    matches: () => false };
+  const textNode = { nodeValue: 'Título traduzido' };
+  const titleEl = {
+    isConnected: true,
+    matches: () => false,
+    get textContent() { return textNode.nodeValue; },
+    ownerDocument: { createTreeWalker: () => {
+      let returned = false;
+      return { nextNode: () => returned ? null : (returned = true, textNode) };
+    } },
+  };
   const document = {
     documentElement: {}, title: 'Título traduzido - YouTube',
     querySelectorAll: selector => selector.includes('#title h1') ? [titleEl] : [],
