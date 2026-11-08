@@ -115,7 +115,8 @@ async function testFetchRetry() {
   await sleep(300);
   assert.equal(calls, 1, 'Backoff must hold back the retry');
   offset = 60000;
-  dom.window.document.body.append(dom.window.document.createElement('div'));
+  // A relevant title change must wake the observer, unlike unrelated DOM additions.
+  link.firstChild.nodeValue = 'Título atualizado';
   await sleep(600);
   assert.equal(calls, 2);
   assert.equal(link.textContent, 'Recovered', 'A temporary failure must not be permanent');
