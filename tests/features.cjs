@@ -115,10 +115,70 @@ async function testFetchRetry() {
   await sleep(300);
   assert.equal(calls, 1, 'Backoff must hold back the retry');
   offset = 60000;
-  dom.window.document.body.append(dom.window.document.createElement('div'));
+  // A relevant title change must wake the observer, unlike unrelated DOM additions.
+  link.firstChild.nodeValue = 'Título atualizado';
   await sleep(600);
   assert.equal(calls, 2);
   assert.equal(link.textContent, 'Recovered', 'A temporary failure must not be permanent');
+}
+
+async function testTitleStructurePreserved() {
+  const dom = page(`<ytd-rich-grid-media>
+    <a id="video-title-link" href="/watch?v=abcdefghijk">
+      <yt-formatted-string><span class="yt-core-attributed-string">
+        <span role="text" id="nested-title">Título traduzido</span>
+      </span></yt-formatted-string><span id="badge">BADGE</span>
+    </a>
+  </ytd-rich-grid-media>
+  <ytd-video-renderer><a id="video-title" href="/watch?v=zzzzzzzzzzz">
+    <yt-formatted-string><span id="part1">Título</span><span id="part2"> traduzido</span></yt-formatted-string>
+  </a></ytd-video-renderer>
+  <div id="unrelated"></div>`, 'https://www.youtube.com/');
+  const { document } = dom.window;
+  const link = document.querySelector('#video-title-link');
+  const nested = document.querySelector('#nested-title');
+  const badge = document.querySelector('#badge');
+  const complex = document.querySelector('ytd-video-renderer yt-formatted-string');
+  const parts = Array.from(complex.children);
+  place(link, 100);
+  place(document.querySelector('ytd-video-renderer a'), 100);
+  let clicks = 0;
+  nested.addEventListener('click', () => clicks++);
+  dom.window.fetch = oembed([]);
+  dom.window.eval(code.titles());
+  await sleep(450);
+  assert.equal(nested.textContent, 'Original abcdefghijk');
+  assert.equal(document.querySelector('#nested-title'), nested, 'Original element must survive');
+  assert.equal(document.querySelector('#badge'), badge, 'Badge must survive');
+  assert.equal(badge.textContent, 'BADGE');
+  nested.click();
+  assert.equal(clicks, 1, 'Existing event handlers must survive');
+  assert.equal(complex.textContent.trim(), 'Título traduzido', 'Multi-span titles must be left intact');
+  assert.equal(complex.children[0], parts[0]);
+  assert.equal(complex.children[1], parts[1]);
+}
+
+async function testTitleRerenderAndReusedLink() {
+  const dom = page(`<ytd-video-renderer>
+    <a id="video-title" href="/watch?v=abcdefghijk">
+      <yt-formatted-string><span id="leaf">Traduzido</span></yt-formatted-string>
+    </a>
+  </ytd-video-renderer>`, 'https://www.youtube.com/');
+  const { document } = dom.window;
+  const link = document.querySelector('a#video-title');
+  const leaf = document.querySelector('#leaf');
+  place(link, 100);
+  const requests = [];
+  dom.window.fetch = oembed(requests);
+  dom.window.eval(code.titles());
+  await sleep(450);
+  assert.equal(leaf.textContent, 'Original abcdefghijk');
+  link.href = '/watch?v=zzzzzzzzzzz'; // YouTube recycles feed components.
+  leaf.firstChild.nodeValue = 'Outro título traduzido';
+  await sleep(500);
+  assert.equal(leaf.textContent, 'Original zzzzzzzzzzz');
+  assert.deepEqual(requests, ['abcdefghijk', 'zzzzzzzzzzz']);
+  assert.equal(document.querySelector('#leaf'), leaf);
 }
 
 async function testTitlesExtras() {
@@ -305,6 +365,8 @@ async function main() {
   await testLongFeed();
   await testFetchRetry();
   await testTitlesExtras();
+  await testTitleStructurePreserved();
+  await testTitleRerenderAndReusedLink();
   await testAudioShorts();
   await testAudioGivesUp();
   testAudioSkipsStudio();

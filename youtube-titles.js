@@ -46,6 +46,14 @@
   const queued = new Set();
   const queue = [];
   const parsedLinks = new WeakMap();
+  const lastWritten = new WeakMap();
+  const maxCachedTitles = 500;
+  const remember = (id, title) => {
+    // Bound memory on long browsing sessions.
+    cache.delete(id);
+    cache.set(id, title);
+    if (cache.size > maxCachedTitles) cache.delete(cache.keys().next().value);
+  };
   let inFlight = 0;
   let timer;
 
@@ -70,17 +78,28 @@
     return id;
   };
 
+  // YouTube owns its title components. Never flatten their child DOM structure.
+  // Restore a title only when one existing text node contains the whole title.
   const putTitle = (el, title) => {
-    if (!el.isConnected || !title) return;
-    // Preserve the anchor, its href, navigation handlers, and badge elements.
+    if (!el.isConnected || typeof title !== 'string' || !title.trim()) return;
     const node = el.matches('a')
       ? (el.querySelector('yt-formatted-string, .yt-core-attributed-string') || el)
       : el;
-    if (node.textContent?.trim() !== title) {
-      node.textContent = title;
-      if (el.matches('a')) el.title = title;
-      agDebug('youtube-titles: restored', title);
+    const current = node.textContent?.trim();
+    if (!current || current === title) return;
+    const walker = node.ownerDocument?.createTreeWalker?.(node, 4); // SHOW_TEXT
+    if (!walker) return;
+    let leaf = null;
+    for (let text = walker.nextNode(); text; text = walker.nextNode()) {
+      if (!text.nodeValue?.trim()) continue;
+      if (leaf) return; // Multiple title runs: leave complex markup untouched.
+      leaf = text;
     }
+    if (!leaf || leaf.nodeValue.trim() !== current) return;
+    leaf.nodeValue = title;
+    lastWritten.set(leaf, title);
+    if (el.matches('a')) el.title = title;
+    agDebug('youtube-titles: restored', title);
   };
 
   const nearViewport = (el) => {
@@ -90,7 +109,7 @@
 
   const fail = (id) => {
     const count = (failures.get(id)?.count || 0) + 1;
-    if (count >= maxRetries) { cache.set(id, null); failures.delete(id); return; }
+    if (count >= maxRetries) { remember(id, null); failures.delete(id); return; }
     const delay = 5000 * 2 ** count;
     failures.set(id, { count, retryAt: Date.now() + delay });
     setTimeout(schedule, delay);
@@ -105,13 +124,13 @@
         .then(response => {
           if (response.ok) return response.json();
           // 401/403/404 are final for this video; rate limits and 5xx are temporary.
-          if ([401, 403, 404].includes(response.status)) { cache.set(id, null); return null; }
+          if ([401, 403, 404].includes(response.status)) { remember(id, null); return null; }
           fail(id);
           return null;
         })
         .then(data => {
           if (!data) return;
-          if (typeof data.title === 'string') { cache.set(id, data.title); failures.delete(id); schedule(); } else cache.set(id, null);
+          if (typeof data.title === 'string' && data.title.trim()) { remember(id, data.title.trim()); failures.delete(id); schedule(); } else remember(id, null);
         })
         .catch(() => fail(id))
         .finally(() => { queued.delete(id); inFlight--; pump(); });
@@ -163,9 +182,35 @@
   const schedule = () => { if (timer) return; timer = setTimeout(() => { timer = null; scan(); }, 200); };
   document.addEventListener('yt-navigate-finish', schedule);
   document.addEventListener('visibilitychange', schedule);
+  // Only title-related changes schedule scans. Ignore our own text edits.
+  const observedTitles = [linkSelector, cardSelector, pageTitleSelector, miniplayerSelector].join(',');
+  const titleHosts = [
+    'ytd-rich-grid-media', 'ytd-video-renderer', 'ytd-grid-video-renderer',
+    'ytd-compact-video-renderer', 'ytd-playlist-video-renderer',
+    'ytd-playlist-panel-video-renderer', 'yt-lockup-view-model',
+    'ytd-watch-metadata', 'yt-shorts-video-title-view-model',
+    'ytd-miniplayer-info-bar', '.ytp-title',
+  ].join(',');
+  const titleMutation = mutation => {
+    if (mutation.type === 'characterData') {
+      const text = mutation.target;
+      return lastWritten.get(text) !== text.nodeValue &&
+        Boolean(text.parentElement?.closest?.(observedTitles));
+    }
+    if (mutation.type !== 'childList' || !mutation.addedNodes.length) return false;
+    if (mutation.target.nodeType === 1 &&
+        mutation.target.closest?.(observedTitles)) return true;
+    return Array.from(mutation.addedNodes).some(node =>
+      node.nodeType === 1 &&
+      (node.matches?.(observedTitles) || node.matches?.(titleHosts) ||
+        Boolean(node.querySelector?.(observedTitles))));
+  };
   if (document.documentElement) {
-    new MutationObserver(schedule).observe(document.documentElement,
-      { childList: true, subtree: true });
+    new MutationObserver(mutations => {
+      if (mutations.some(titleMutation)) schedule();
+    }).observe(document.documentElement, {
+      childList: true, characterData: true, subtree: true,
+    });
   }
   addEventListener('scroll', schedule, { passive: true });
   agDebug('youtube-titles: active');
